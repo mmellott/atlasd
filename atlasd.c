@@ -1,21 +1,21 @@
 #include <stdio.h>
 
 #include <netlink/netlink.h>
-#include <netlink/socket.h>
-#include <netlink/msg.h>
+#include <netlink/genl/genl.h>
+#include <linux/nl80211.h>
 
 int main()
 {
     struct nl_sock *sk = NULL;
-    struct nl_msg *msg = NULL;
 
     sk = nl_socket_alloc();
-    msg = nlmsg_alloc();
+    genl_connect(sk);
 
-    printf("Goodbye, cruel world...\n");
+    int driver_id = genl_ctrl_resolve(sk, "nl80211");
+
+    printf("atlasd: dirver_id = %d\n", driver_id);
 
 fail:
     if (sk) nl_socket_free(sk);
-    if (msg) nlmsg_free(msg);
 }
 

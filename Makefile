@@ -1,8 +1,9 @@
 SRC = atlasd.c
 OBJ = $(SRC:.c=.o)
 
-CFLAGS += $(shell pkg-config --cflags libnl-3.0)
-LDLIBS += $(shell pkg-config --libs libnl-3.0)
+PKG = libnl-3.0 libnl-genl-3.0
+CFLAGS += $(shell pkg-config --cflags $(PKG))
+LDLIBS += $(shell pkg-config --libs $(PKG))
 
 atlasd : $(OBJ)
 
