@@ -2,9 +2,14 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 
+#include <net/cfg80211.h>
+
+struct ieee80211_txq_params p;
+struct wiphy *w;
+
 static int __init hello_init(void)
 {
-	printk(KERN_INFO "atlas: my burden is heavy...\n");
+        w = wiphy_new(NULL, 0);
 	return 0;
 }
 
