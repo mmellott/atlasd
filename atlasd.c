@@ -4,16 +4,65 @@
 #include <netlink/genl/genl.h>
 #include <linux/nl80211.h>
 
+void print_all_attrs(struct nlattr **tb_msg);
+
 static int get_cw(struct nl_msg *msg, void *arg)
 {
     struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
     struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
     unsigned int *wiphy = arg;
 
-    nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
-
     printf("atlasd: got message!\n");
 
+    nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
+    print_all_attrs(tb_msg);
+    //nl_msg_dump(msg, stdout);
+
+    return NL_SKIP;
+}
+
+int main()
+{
+    /* create socket */
+    struct nl_sock *sk = NULL;
+
+    sk = nl_socket_alloc();
+    genl_connect(sk);
+    nl_socket_modify_cb(sk, NL_CB_VALID, NL_CB_CUSTOM, get_cw, NULL);
+
+    /* setup message */
+    int driver_id, if_index;
+    struct nl_msg *msg = NULL;
+
+    driver_id = genl_ctrl_resolve(sk, "nl80211");
+    if_index = if_nametoindex("wlan0");
+    msg = nlmsg_alloc();
+
+    genlmsg_put(msg, 0, 0, driver_id, 0, 0, NL80211_CMD_GET_WIPHY, 0);
+    NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_index);
+
+    //struct nlattr *nested;
+    //nested = nla_nest_start(msg,NL80211_ATTR_WIPHY_TXQ_PARAMS);
+    //NLA_PUT_U16(msg,NL80211_TXQ_ATTR_CWMIN,cw_min);
+    //NLA_PUT_U16(msg,NL80211_TXQ_ATTR_CWMAX,cw_max);
+    //nla_nest_end(msg,nested);
+
+    /* send/recv/ack */
+    int r;
+
+    r = nl_send_auto_complete(sk, msg);
+    printf("atlasd: nl_send_auto_complete returned %d\n", r);
+    nl_recvmsgs_default(sk);
+    nl_wait_for_ack(sk);
+
+nla_put_failure: /* from NLA_PUT_* macros */
+fail:
+    if (sk) nl_socket_free(sk);
+    if (msg) nlmsg_free(msg);
+}
+
+void print_all_attrs(struct nlattr **tb_msg)
+{
     if (tb_msg[NL80211_ATTR_UNSPEC]) printf("NL80211_ATTR_UNSPEC\n");
     if (tb_msg[NL80211_ATTR_WIPHY]) printf("NL80211_ATTR_WIPHY\n");
     if (tb_msg[NL80211_ATTR_WIPHY_NAME]) printf("NL80211_ATTR_WIPHY_NAME\n");
@@ -202,54 +251,5 @@ static int get_cw(struct nl_msg *msg, void *arg)
     if (tb_msg[NL80211_ATTR_STA_SUPPORTED_CHANNELS]) printf("NL80211_ATTR_STA_SUPPORTED_CHANNELS\n");
     if (tb_msg[NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES]) printf("NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES\n");
     if (tb_msg[NL80211_ATTR_HANDLE_DFS]) printf("NL80211_ATTR_HANDLE_DFS\n");
-
-    if (tb_msg[NL80211_ATTR_WIPHY_TXQ_PARAMS]) {
-        unsigned int cw_min = nla_get_u32(tb_msg[NL80211_TXQ_ATTR_CWMIN]);
-        printf("cw_min: %u\n", cw_min);
-    }
-
-    //nl_msg_dump(msg, stdout);
-
-    return NL_SKIP;
-}
-
-int main()
-{
-    /* create socket */
-    struct nl_sock *sk = NULL;
-
-    sk = nl_socket_alloc();
-    genl_connect(sk);
-    nl_socket_modify_cb(sk, NL_CB_VALID, NL_CB_CUSTOM, get_cw, NULL);
-
-    /* setup message */
-    int driver_id, if_index;
-    struct nl_msg *msg = NULL;
-
-    driver_id = genl_ctrl_resolve(sk, "nl80211");
-    if_index = if_nametoindex("wlan0");
-    msg = nlmsg_alloc();
-
-    genlmsg_put(msg, 0, 0, driver_id, 0, 0, NL80211_CMD_GET_WIPHY, 0);
-    NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_index);
-
-    //struct nlattr *nested;
-    //nested = nla_nest_start(msg,NL80211_ATTR_WIPHY_TXQ_PARAMS);
-    //NLA_PUT_U16(msg,NL80211_TXQ_ATTR_CWMIN,cw_min);
-    //NLA_PUT_U16(msg,NL80211_TXQ_ATTR_CWMAX,cw_max);
-    //nla_nest_end(msg,nested);
-
-    /* send/recv/ack */
-    int r;
-
-    r = nl_send_auto_complete(sk, msg);
-    printf("atlasd: nl_send_auto_complete returned %d\n", r);
-    nl_recvmsgs_default(sk);
-    nl_wait_for_ack(sk);
-
-nla_put_failure: /* from NLA_PUT_* macros */
-fail:
-    if (sk) nl_socket_free(sk);
-    if (msg) nlmsg_free(msg);
 }
 
